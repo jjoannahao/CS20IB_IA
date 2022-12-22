@@ -115,7 +115,52 @@ def setupContent():
         CREATE TABLE
             home (
                 date INTEGER PRIMARY KEY,
-                office_sq_footage INTEGER,
+                home_sq_footage FLOAT,
+                office_sq_footage FLOAT,
+                office_percent_of_home FLOAT GENERATED ALWAYS AS (
+                    office_aq_footage / home_sq_footage * 100
+                ),
+                heat FLOAT,
+                electricity_water FLOAT,
+                insurance FLOAT,
+                maintenance FLOAT,
+                mortgage_interest FLOAT,
+                property taxes FLOAT,
+                phone FLOAT,
+                internet FLOAT,
+                cable FLOAT,
+                other_expenses FLOAT,
+                personal_use_area FLOAT
+            )
+    ;""")
+
+    CURSOR.execute("""
+        CREATE TABLE
+            automobile_expenses (
+                date INTEGER PRIMARY KEY,
+                driven_distance_income INTEGER,
+                total_distance_driven INTEGER,
+                fuel FLOAT,
+                vehicle_maintenance FLOAT,
+                lease_payments FLOAT,
+                washes FLOAT,
+                insurance FLOAT,
+                license_registration FLOAT,
+                vehicle_purchase_interest FLOAT,
+                etr_407 FLOAT,
+                caa FLOAT,
+                capital_allowance FLOAT
+            )
+    ;""")  # annual costs (not monthly)
+
+    CURSOR.execute("""
+        CREATE TABLE
+            bank_record (
+                date INTEGER PRIMARY KEY,
+                description TEXT,
+                deposit FLOAT,
+                charge FLOAT,
+                balance FLOAT
             )
     ;""")
 
