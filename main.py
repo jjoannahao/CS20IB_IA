@@ -10,7 +10,7 @@ from random import randint
 """
 reminders:
 - IB naming conventions: uppercase for all variables, camelCase for functions/methods
-- 
+- have the triple line comments for all functions 
 """
 
 
@@ -24,10 +24,15 @@ def getFileContent(FILENAME):
     for i in range(len(CONTENT)):
         if CONTENT[i][-1] == "\n":
             CONTENT[i] = CONTENT[i][:-1]
-        CONTENT[i] = CONTENT[i].split(",")
-        for j in range(len(CONTENT[i])):
+        CONTENT[i] = CONTENT[i].split(",")  # now a list
+        for j in range(len(CONTENT[i])):  # checking items in list
             if CONTENT[i][j].isnumeric():
                 CONTENT[i][j] = int(CONTENT[i][j])
+            elif CONTENT[i][j] == "":
+                CONTENT[i][j] = None
+            elif CONTENT[i][j][0] == "'" and CONTENT[i][j][-1] == "'":
+                CONTENT[i][j][0] = ""
+                CONTENT[i][j][0] = ""
     return CONTENT
 
 
@@ -44,7 +49,7 @@ Choose an action:
 8. Exit
     """)
     CHOICE = input("> ")
-    if CHOICE.isnumeric() and int(CHOICE) >= 1 and int(CHOICE) <= 7:
+    if CHOICE.isnumeric() and int(CHOICE) >= 1 and int(CHOICE) <= 8:
         return int(CHOICE)
     else:
         print("Please enter a valid number from the list.")
@@ -55,26 +60,32 @@ def getNewSong() -> list:
     while True:
         SONG_NAME = input("Name of song? ")
         if SONG_NAME == "":
-            print("Please enter a song name.")
+            print(">> Please enter a song name next time.")
             continue
         ARTIST = input("Name of artist? ")
         if ARTIST == "":
-            print("Please enter an artist name.")
+            print(">> Please enter an artist name next time.")
             continue
         COLLECTION = input("Is it part of an album or EP (1), or is it a single? (2) ")
         if not (COLLECTION.isnumeric() and int(COLLECTION) >= 1 and int(COLLECTION) <= 2):
-            print("Please select a valid number.")
+            print(">> Please select a valid number next time.")
             continue
         else:
-            if COLLECTION == 1:
+            if COLLECTION == "1":
                 COLLECTION_NAME = input("What is the name of the album or EP? ")
+                if COLLECTION_NAME == "":
+                    print(">> Please enter an album/EP name next time.")
+                    continue
             else:
-                COLLECTION_NAME = "single"
-        DURATION = input("Duration of song? ")  # expecting X:XX or XX:XX form
-        if DURATION.find(":") == -1:
-            print("Please enter the duration of the song in the format 'X:XX' or 'XX:XX'.")
+                COLLECTION_NAME = "Single"
+        DURATION = input("Duration of song? ('XX:XX' format) ")
+        if not (DURATION.find(":") == 2 and len(DURATION) == 5):
+            print(">> Please enter the duration of the song in the format 'XX:XX' next time.")
             continue
-        GENRE = input("What is the genre of the song? Leave the field blank if you are unsure (and fill it in later).")
+        GENRE = input("What is the genre of the song? ")
+        if GENRE == "":
+            print(">> Please enter a genre next time.")
+            continue
         break
 
     NEW_SONG = [SONG_NAME, ARTIST, COLLECTION_NAME, DURATION, GENRE]
@@ -99,18 +110,18 @@ def getModifiedSongDetails(ID):
     while True:
         SONG_NAME = input(f"Name of song? (currently '{SONG[1]}') ")
         ARTIST = input(f"Name of artist? (currently '{SONG[2]}') ")
-        COLLECTION = input(f"Is the song part of an album or EP (y/N)? (currently '{SONG[3]}') ")
+        COLLECTION = input("Is the song part of an album or EP (y/N)? ")
         if COLLECTION.lower().strip() == "y" or COLLECTION.lower().strip() == "yes":
-            COLLECTION_NAME = input("What is the name of the album or EP? ")
+            COLLECTION_NAME = input(f"What is the name of the album or EP? (currently '{SONG[3]}') ")
         else:
             COLLECTION_NAME = "single"
         DURATION = input(f"Song duration? (currently '{SONG[4]}') ")
-        if DURATION.find(":") == -1:
-            print("Please enter a duration in the format 'X:XX' or 'XX:XX'.")
+        if not DURATION == "" and not (DURATION.find(":") == 2 and len(DURATION) == 5):
+            print(">> Please enter a duration in the format 'XX:XX'.")
             continue
         GENRE = input(f"What is the genre of the song? (currently '{SONG[-1]}') ")
         break
-
+    print(f"new details: {[SONG_NAME, ARTIST, COLLECTION_NAME, DURATION, GENRE]}")
     return [SONG_NAME, ARTIST, COLLECTION_NAME, DURATION, GENRE]
 
 
@@ -121,7 +132,7 @@ def getGenerationBasis():
             print("Please select a valid generation basis from the options.")
             continue
         break
-    return GENERATION_BASIS
+    return int(GENERATION_BASIS)
 
 
 def getPlaylistLength():
@@ -161,11 +172,11 @@ def getSongID():
 
     print("Please select a number:")
     for i in range(len(SONGS)):
-        print(f"{i + 1}. {SONGS[i][1]} by {SONGS[i][2]}")
+        print(f"{i + 1}. '{SONGS[i][1]}' by {SONGS[i][2]}")
 
     ROW_INDEX = input("> ")
     if not (ROW_INDEX.isnumeric() and int(ROW_INDEX) >= 1 and int(ROW_INDEX) <= len(SONGS)):
-        print("Please enter a valid number from the list.")
+        print(">> Please enter a valid number from the list.")
         return getSongID()
     else:
         ROW_INDEX = int(ROW_INDEX) - 1
@@ -203,9 +214,9 @@ def setupSongs(DATA_LIST):
                 id INTEGER PRIMARY KEY,
                 song_name TEXT NOT NULL,
                 artist TEXT NOT NULL,
-                collection_name TEXT,
-                duration TEXT,
-                genre TEXT
+                collection_name TEXT NOT NULL,
+                duration TEXT NOT NULL,
+                genre TEXT NOT NULL
             )
     ;""")
     for i in range(1, len(DATA_LIST)):
@@ -219,7 +230,7 @@ def setupSongs(DATA_LIST):
     CONNECTION.commit()
 
 
-def getAllSongsBasic():
+def getAllSongsBasic():  ### to delete
     global CURSOR
     SONGS = CURSOR.execute("""
         SELECT
@@ -230,20 +241,22 @@ def getAllSongsBasic():
     ;""").fetchall()  # returns a list of tuples
 
     for i in range(len(SONGS)):
-        print(f"{i + 1}. {SONGS[i][0]} by {SONGS[i][1]}")  # of the format: 1. (song_name) by (artist)
+        print(f"{i + 1}. '{SONGS[i][0]}' by {SONGS[i][1]}")  # of the format: 1. (song_name) by (artist)
 
 
 def insertNewSong(SONG_DETAILS):
     global CURSOR, CONNECTION
+    NEW_ID = [determineTotalSongs() + 1]
+    INFO = NEW_ID + SONG_DETAILS
     CURSOR.execute("""
         INSERT INTO
             songs
         VALUES (
             ?, ?, ?, ?, ?, ?
         )
-    ;""", SONG_DETAILS)
+    ;""", INFO)
     CONNECTION.commit()
-    return f"{SONG_DETAILS[0]} by {SONG_DETAILS[1]} was successfully added!"
+    return f"'{SONG_DETAILS[0]}' by {SONG_DETAILS[1]} was successfully added!"
 
 
 def getAllSongsComplete():
@@ -258,25 +271,20 @@ def getAllSongsComplete():
             FROM
                 songs
         ;""").fetchall()  # returns a list of tuples
-
     for i in range(len(SONGS)):
         # of the format: 1. song_name by artist on collection_name (duration)
-        print(f"{i + 1}. {SONGS[i][0]} by {SONGS[i][1]} ", end="")
-        if SONGS[2] == "single":
+        print(f"{i + 1}. '{SONGS[i][0]}' by {SONGS[i][1]} ", end="")
+        #
+        if SONGS[i][2] == "Single":
             print(f"({SONGS[i][3]})")  # just duration
         else:
-            print(f"on {SONGS[i][2]} ({SONGS[i][3]})")  # print album as well
-        if SONGS[-1] != "":
-            print(f"Genre: {SONGS[i][-1]}")
-        else:
-            print(f"Genre: ?")
+            print(f"on '{SONGS[i][2]}' ({SONGS[i][3]})")  # print album as well
+        print(f"Genre: {SONGS[i][-1]} \n")
 
 
 
 def updateSongDetails(ID):
     global CURSOR, CONNECTION
-
-    # ------------------------------ original ------------------------------------------------------------ #
     SONG = CURSOR.execute("""
         SELECT 
             *
@@ -285,40 +293,11 @@ def updateSongDetails(ID):
         WHERE
             id = ?
     ;""", [ID]).fetchone()
-    #
-    # print("Leave a field blank if there are no changes to be made.")
-    # SONG_DETAILS = []
-    # while True:
-    #     # --- input
-    #     SONG_NAME = input(f"Name of song? (currently '{SONG[1]}') ")
-    #     ARTIST = input(f"Name of artist? (currently '{SONG[2]}') ")
-    #     COLLECTION = input(f"Is the song part of an album or EP (y/N)? (currently '{SONG[3]}') ")
-    #     if COLLECTION.lower().strip() == "y" or COLLECTION.lower().strip() == "yes":
-    #         COLLECTION_NAME = input("What is the name of the album or EP? ")
-    #     else:
-    #         COLLECTION_NAME = "single"
-    #     DURATION = input(f"Song duration? (currently '{SONG[4]}') ")
-    #     if DURATION.find(":") == -1:
-    #         print("Please enter a duration in the format 'X:XX' or 'XX:XX'.")
-    #         continue
-    #     GENRE = input(f"What is the genre of the song? (currently '{SONG[-1]}') ")
-    #     break
-    #
-    # # --- processing
-    # SONG_DETAILS.append(SONG_NAME)
-    # SONG_DETAILS.append(ARTIST)
-    # SONG_DETAILS.append(COLLECTION_NAME)
-    # SONG_DETAILS.append(DURATION)
-    # SONG_DETAILS.append(GENRE)
-    # ---------------------------------------------------------------------------------------------------- #
-
     SONG_DETAILS = getModifiedSongDetails(ID)
     for i in range(len(SONG_DETAILS)):
         if SONG_DETAILS[i] == "":
-            SONG_DETAILS[i] = SONG[i]
-
+            SONG_DETAILS[i] = SONG[i+1]
     SONG_DETAILS.append(ID)
-
     CURSOR.execute("""
         UPDATE
             songs
@@ -332,7 +311,7 @@ def updateSongDetails(ID):
             id = ?
     ;""", SONG_DETAILS)
     CONNECTION.commit()
-    return f"{SONG_DETAILS[0]} by {SONG_DETAILS[1]} was successfully updated!"
+    return f"'{SONG_DETAILS[0]}' by {SONG_DETAILS[1]} was successfully updated!"
 
 
 def deleteSong(ID):
@@ -356,7 +335,7 @@ def deleteSong(ID):
             id = ?
     ;""", [ID])
     CONNECTION.commit()
-    return f"{SONG[0]} by {SONG[1]} was successfully deleted!"
+    return f"'{SONG[0]}' by {SONG[1]} was successfully deleted!"
 
 
 def determineTopArtist():
@@ -498,11 +477,11 @@ def determineTotalSongs():
     global CURSOR
     TOTAL_COUNT = CURSOR.execute("""
         SELECT
-            MAX(id)
+            song_name
         FROM
             songs
-    ;""").fetchone()
-    return TOTAL_COUNT
+    ;""").fetchall()
+    return len(TOTAL_COUNT)
 
 
 def determineTop3Artists():
@@ -512,42 +491,73 @@ def determineTop3Artists():
             artist
         FROM
             songs
-    ;""").fetchall()
-    LISTED_ARTISTS, ARTISTS_COUNT = [], []
+    ;""").fetchall()  # returns 2D array
 
-    # remove duplicates
+    LISTED_ARTISTS, ARTISTS_COUNT = [], []  # parallel arrays
+    # save unique names of artists
     for i in range(len(ALL_ARTISTS)-1, -1, -1):
         if ALL_ARTISTS[i] not in LISTED_ARTISTS:
             LISTED_ARTISTS.append(ALL_ARTISTS[i])
-        else:
-            ALL_ARTISTS.pop(i)
+    #     else:
+    #         ALL_ARTISTS.pop(i)
+    #
+    # # count number of songs per artist
+    # for ARTIST in ALL_ARTISTS:
+    #     COUNT = CURSOR.execute("""
+    #         SELECT
+    #             COUNT(artist)
+    #         FROM
+    #             songs
+    #         WHERE
+    #             artist = ?
+    #     ;""", [ARTIST])
+    #     ARTISTS_COUNT.append(COUNT)  # parallel array
+    for i in range(len(LISTED_ARTISTS)):
+        COUNT = ALL_ARTISTS.count(LISTED_ARTISTS[i])
+        ARTISTS_COUNT.append(COUNT)
 
-    # count number of songs per artist
-    for ARTIST in ALL_ARTISTS:
-        COUNT = CURSOR.execute("""
-            SELECT
-                COUNT(artist)
-            FROM
-                songs
-            WHERE
-                artist = ?
-        ;""", [ARTIST])
-        ARTISTS_COUNT.append(COUNT)  # parallel array
+    print(LISTED_ARTISTS)  # 2D Array still
 
-    ARTIST1 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+    ARTIST1 = sortBasisForTop(ARTISTS_COUNT)
+    ARTIST1 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
+
     TOP_ARTISTS = [ARTIST1]
-    if len(ARTISTS_COUNT) >= 2:
-        ARTIST2 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+
+    if UNIQUE_ARTIST_COUNT >= 2:
+        ARTIST2 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
+
+        ARTISTS_COUNT.pop(ARTIST2[1])
+        LISTED_ARTISTS.pop(ARTIST2[1])
         TOP_ARTISTS.append(ARTIST2)
-    elif len(ARTISTS_COUNT) >= 3:
-        ARTIST3 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+    elif UNIQUE_ARTIST_COUNT >= 3:
+        ARTIST3 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
         TOP_ARTISTS.append(ARTIST3)
     return TOP_ARTISTS
+
+
+    # ARTIST1 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+    # TOP_ARTISTS = [ARTIST1]
+    # if len(ARTISTS_COUNT) >= 2:
+    #     ARTIST2 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+    #     TOP_ARTISTS.append(ARTIST2)
+    # elif len(ARTISTS_COUNT) >= 3:
+    #     ARTIST3 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
+    #     TOP_ARTISTS.append(ARTIST3)
+    # return TOP_ARTISTS
     ## original
     # ARTIST1_COUNT = max(ARTISTS_COUNT)  # find top artist by count
     # ARTIST1_INDEX = ARTISTS_COUNT.index(ARTIST1_COUNT)  # obtain index to get artist name
     # ARTIST1 = ALL_ARTISTS[ARTIST1_INDEX]  # get artist name
     # ARTISTS_COUNT.remove(ARTIST1_COUNT)  # remove so next top artist can be found
+
+
+def sortBasisForTop(BASIS_COUNT):
+    TOP_COUNT = [0, 0]  # top_value, index
+    for INDEX, VALUE in enumerate(BASIS_COUNT):
+        if VALUE > TOP_COUNT[0]:
+            TOP_COUNT[0] = VALUE
+            TOP_COUNT[1] = INDEX
+    return TOP_COUNT[1]
 
 
 def determineTop3Genres():
@@ -703,9 +713,10 @@ BASIS = {1: "artist", 2: "genre"}
 if __name__ == "__main__":
     # -------------------- MAIN PROGRAM CODE -------------------- #
     if FIRST_RUN:
-        CONTENT = getFileContent("filename.ext")  ### MODIFY LATER
-        setupSongs(CONTENT)
+        SONGS = getFileContent("songs.csv")
+        setupSongs(SONGS)
     while True:
+        print("\n------------------------------------------------------------")
         print("Welcome to your playlist program!")
         # --- inputs
         CHOICE = menu()
@@ -746,12 +757,13 @@ if __name__ == "__main__":
         elif CHOICE == 7:  # guess favourite ____
             if GENERATION_BASIS == 1:  # artist
                 TOP_ARTISTS = determineTop3Artists()
-                for ARTIST in TOP_ARTISTS:
-                    ALERT = checkGuess(ARTIST, GENERATION_BASIS)
-                    if not ALERT:
-                        break
-                else:
-                    ALERT = "Darn! Couldn't guess it!"
+                print(TOP_ARTISTS)
+                # for ARTIST in TOP_ARTISTS:
+                #     ALERT = checkGuess(ARTIST, GENERATION_BASIS)
+                #     if not ALERT:
+                #         break
+                # else:
+                #     ALERT = "Darn! Couldn't guess it!"
             else:  # genre
                 TOP_GENRES = determineTop3Genres()
                 for GENRE in TOP_GENRES:
@@ -763,11 +775,11 @@ if __name__ == "__main__":
 
         # --- outputs
         if CHOICE == 1:  # see all songs
-            getAllSongsBasic()
-        elif CHOICE in (2, 3, 4, 5, 7):
-            print(ALERT)
-        elif CHOICE == 6:  # generate playlist
-            displayPlaylist(SONGS_PLAYLIST, GENERATION_BASIS)
-        elif CHOICE == 8:
+            getAllSongsComplete()
+        # elif CHOICE in (2, 3, 4, 5, 7):
+        #     print(ALERT)
+        # elif CHOICE == 6:  # generate playlist
+        #     displayPlaylist(SONGS_PLAYLIST, GENERATION_BASIS)
+        if CHOICE == 8:
             print("Thanks for using this program!")
             exit()
