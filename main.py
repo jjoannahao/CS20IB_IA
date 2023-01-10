@@ -126,8 +126,12 @@ def getModifiedSongDetails(ID):
 
 
 def getGenerationBasis():
+    global CHOICE
     while True:
-        GENERATION_BASIS = input("Do you want to generate a playlist by artist (1) or genre (2)? ")
+        if CHOICE == 6:
+            GENERATION_BASIS = input("Do you want the program to generate a playlist by artist (1) or genre (2)? ")
+        elif CHOICE == 7:
+            GENERATION_BASIS = input("Do you want the program to guess your favourite artist (1) or genre (2)? ")
         if not (GENERATION_BASIS.isnumeric() and int(GENERATION_BASIS) in (1, 2)):
             print("Please select a valid generation basis from the options.")
             continue
@@ -136,27 +140,27 @@ def getGenerationBasis():
 
 
 def getPlaylistLength():
-    global TOTAL_SONGS, randint
+    global randint
+    TOTAL_SONGS = determineTotalSongs()
     while True:
         LENGTH = input(f"How many songs do you want the playlist to generate? (5-{TOTAL_SONGS} or random (R)) ")
         if not (LENGTH.isnumeric() and int(LENGTH) >= 5 and int(LENGTH) <= TOTAL_SONGS or LENGTH.lower().strip() in (
         "random", "r")):
-            print("Please select a valid length or the random option.")
+            print("Please select a valid length or the 'random' option.")
             continue
         elif LENGTH.lower().strip() in ("random", "r"):
             LENGTH = randint(5, TOTAL_SONGS)  # a <= ? <= b for randint (same as randrange(a, b+1)
         break
-    return LENGTH
+    return int(LENGTH)
 
 
 def checkGuess(GUESS, GENERATION_BASIS):
     global BASIS
-    RESPONSE = input(f"Is {GUESS} your favourite {BASIS[GENERATION_BASIS]}? (y/N) ")
+    RESPONSE = input(f"Is '{GUESS}' your favourite {BASIS[GENERATION_BASIS]}? (y/N) ")
     if RESPONSE.lower().strip() in ("y", "yes"):
-        ALERT = "Hooray! That's a great choice. Thanks for playing and until next time!"
-        return ALERT
+        return ">> Hooray! That's a great choice. Thanks for playing and until next time!"
     else:
-        return False
+        return "F"
 
 
 def getSongID():
@@ -183,21 +187,24 @@ def getSongID():
         return SONGS[ROW_INDEX][0]
 
 
-def getSongGrouptoRemove(DUPLICATE_SONGS):
+def getSongGrouptoRemove(DUPLICATE_NAMES, DUPLICATE_SONG_IDS):
     """
     display groups of song duplicates then ask user which group to remove
-    :param DUPLICATE_SONGS: list of lists (song_name, ids of duplicate songs in database)
-    :return: list (of indexes of song duplicates)
+    :param DUPLICATE_NAMES: list of strings (of songs names w/ duplicates)
+    :param DUPLICATE_SONG_IDS: list of tuples (of groups of song ids that are duplicates of each other)
+    :return: int (index of song group to remove in DUPLICATE_SONG_GROUPS, the 2D array of duplicate songs
     """
     # display song groups of duplicates
+    print(f"len check (shud be =): {len(DUPLICATE_NAMES)}, {len(DUPLICATE_SONG_IDS)}")
     print("Select a song group to have the duplicates (same song name & artist) removed:")
-    for i in range(len(DUPLICATE_SONGS)):  # number of song groups
-        DUPLICATES_NUMBER = len(DUPLICATE_SONGS[i] - 1)  # minus song name
-        print(f"{i + 1}. {DUPLICATE_SONGS[i][0]} ({DUPLICATES_NUMBER})")  # format of 1. Song-Name (Num-Duplicates)
+    for i in range(len(DUPLICATE_NAMES)):  # number of song groups
+        print("Potential duplicates: ")
+        print(f"{i + 1}. {DUPLICATE_NAMES[i]} ", end="")  # format of 1. Song-Name (Num-Duplicates)
+        # print(f"({len(DUPLICATE_SONG_IDS[i])})")  # number of duplicates = len of tuple at corresponding index
 
     # determine which group user wants to remove
     GROUP = input("> ")  # to correspond to index of group in DUPLICATE_SONGS
-    if GROUP.isnumeric() and int(GROUP) >= 1 and int(GROUP) <= len(DUPLICATE_SONGS):
+    if GROUP.isnumeric() and int(GROUP) >= 1 and int(GROUP) <= len(DUPLICATE_NAMES):
         GROUP = int(GROUP) - 1
         return DUPLICATE_SONGS[GROUP]  # list of indexes of duplicates (includes song name still)
     else:
@@ -409,83 +416,49 @@ def determineTopGenre():
         TOP = [TOP_COUNT]
     return TOP
 
-
-def generateArtistPlaylist(TOP_COUNT, TOP, PLAYLIST_LENGTH):
-    global TOTAL_SONGS, randint
-    PLAYLIST = []
-    # determining number of songs from top artists
-    TOP_PORTION = int(TOP_COUNT / TOTAL_SONGS)  # floored (rounded down)
-    SONGS_PER_BASIS = [(PLAYLIST_LENGTH * TOP_PORTION) for i in range(len(TOP))]  # SONGS_PER_BASIS parallel to TOP
-    # add songs from top artist(s)
-    for i in range(len(SONGS_PER_BASIS)):
-        for j in range(SONGS_PER_BASIS[i]):
-            SONG_INDEX = randint(0, TOP_COUNT-1)
-            PLAYLIST.append(SONG_INDEX)
-    # add songs not from top artists
-    for i in range(PLAYLIST_LENGTH - int(len(PLAYLIST))):
-        SONG_INDEX = randint(0, TOTAL_SONGS-1)
-        while True:
-            if SONG_INDEX in TOP:  ### CHECK TYPES so in statement actually works
-                SONG_INDEX = randint(0, TOTAL_SONGS)
-            else:
-                break
-    return PLAYLIST
-
-
-def generateGenrePlaylist(TOP_COUNT, TOP, PLAYLIST_LENGTH):
-    global TOTAL_SONGS, randint
-    PLAYLIST = []
-    TOP_PORTION = int(TOP_COUNT / TOTAL_SONGS)
-    # add songs from top genre to playlist
-    for i in range(TOP_PORTION):
-        SONG_INDEX = randint(0, TOP_COUNT-1)  ### CHECK
-        PLAYLIST.append(TOP[SONG_INDEX])
-    # add songs not from top genre
-    for i in range(PLAYLIST_LENGTH - int(len(PLAYLIST))):
-        SONG_INDEX = randint(0, TOTAL_SONGS-1)
-        while True:  # ensure songs not from top genre selected
-            if SONG_INDEX in TOP:  ### CHECK TYPES so in statement actually works
-                SONG_INDEX = randint(0, TOTAL_SONGS)
-            else:
-                break
-    return PLAYLIST
-
-
-def retrievePlaylistSongs(INDICES_PLAYLIST):
+def generatePlaylist(PLAYLIST_LENGTH):
     """
-    using generated indices, select songs from database
-    :param INDICES_PLAYLIST: list (of indices of songs generated)
-    :return: list
+    generate playlist of specified lengths
+    :param PLAYLIST_LENGTH: int
+    :return: list (of tuples)
     """
-    global CURSOR, CONNECTION
-    SONG_DETAILS_PLAYLIST = []
-    for i in range(len(INDICES_PLAYLIST)):
-        RETRIEVED_SONG = CURSOR.execute("""
-            SELECT
-                song_name,
-                artist
-            FROM
-                songs
-            WHERE
-                id = ?
-        ;""", [INDICES_PLAYLIST[i]])
-        SONG_DETAILS_PLAYLIST.append(RETRIEVED_SONG)
-    return SONG_DETAILS_PLAYLIST
+    global randint
+    ALL_SONGS = CURSOR.execute("""
+        SELECT
+            song_name,
+            artist,
+            genre
+        FROM
+            songs
+    ;""").fetchall()  # returns a list of tuples
+    ### Need to account for duplicate songs beforehand
+    PLAYLIST = []
+    SELECTED_INDICES = []
+    for i in range(PLAYLIST_LENGTH):
+        SONG_INDEX = randint(0, len(ALL_SONGS)-1)
+        if SONG_INDEX not in SELECTED_INDICES:
+            PLAYLIST.append(ALL_SONGS[SONG_INDEX])
+            SELECTED_INDICES.append(SONG_INDEX)
+    return PLAYLIST
 
 
 def determineTotalSongs():
     global CURSOR
     TOTAL_COUNT = CURSOR.execute("""
         SELECT
-            song_name
+            id
         FROM
             songs
     ;""").fetchall()
-    return len(TOTAL_COUNT)
+    return TOTAL_COUNT[-1][0]
 
 
-def determineTop3Artists():
-    global CURSOR
+def selectArtists() -> list:
+    """
+    randomly select up to 3 artists to guess as user's favourite artist
+    :return: list (of strings)
+    """
+    global CURSOR, randint
     ALL_ARTISTS = CURSOR.execute("""
         SELECT
             artist
@@ -493,111 +466,71 @@ def determineTop3Artists():
             songs
     ;""").fetchall()  # returns 2D array
 
-    LISTED_ARTISTS, ARTISTS_COUNT = [], []  # parallel arrays
+    UNIQUE_ARTISTS = []
     # save unique names of artists
-    for i in range(len(ALL_ARTISTS)-1, -1, -1):
-        if ALL_ARTISTS[i] not in LISTED_ARTISTS:
-            LISTED_ARTISTS.append(ALL_ARTISTS[i])
-    #     else:
-    #         ALL_ARTISTS.pop(i)
-    #
-    # # count number of songs per artist
-    # for ARTIST in ALL_ARTISTS:
-    #     COUNT = CURSOR.execute("""
-    #         SELECT
-    #             COUNT(artist)
-    #         FROM
-    #             songs
-    #         WHERE
-    #             artist = ?
-    #     ;""", [ARTIST])
-    #     ARTISTS_COUNT.append(COUNT)  # parallel array
-    for i in range(len(LISTED_ARTISTS)):
-        COUNT = ALL_ARTISTS.count(LISTED_ARTISTS[i])
-        ARTISTS_COUNT.append(COUNT)
+    for i in range(len(ALL_ARTISTS) - 1, -1, -1):
+        if ALL_ARTISTS[i] not in UNIQUE_ARTISTS:
+            UNIQUE_ARTISTS.append(ALL_ARTISTS[i])
 
-    print(LISTED_ARTISTS)  # 2D Array still
-
-    ARTIST1 = sortBasisForTop(ARTISTS_COUNT)
-    ARTIST1 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
-
-    TOP_ARTISTS = [ARTIST1]
-
-    if UNIQUE_ARTIST_COUNT >= 2:
-        ARTIST2 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
-
-        ARTISTS_COUNT.pop(ARTIST2[1])
-        LISTED_ARTISTS.pop(ARTIST2[1])
-        TOP_ARTISTS.append(ARTIST2)
-    elif UNIQUE_ARTIST_COUNT >= 3:
-        ARTIST3 = LISTED_ARTISTS[sortBasisForTop(ARTISTS_COUNT)][0]
-        TOP_ARTISTS.append(ARTIST3)
-    return TOP_ARTISTS
+    # randomly pick artists to guess
+    ARTIST_GUESSES = []
+    INDEX = randint(0, len(UNIQUE_ARTISTS)-1)
+    GUESSED_INDICES = [INDEX]
+    ARTIST_GUESSES.append(UNIQUE_ARTISTS[INDEX][0])
+    if len(UNIQUE_ARTISTS) >= 2:
+        while True:
+            INDEX = randint(0, len(UNIQUE_ARTISTS) - 1)
+            if INDEX not in GUESSED_INDICES:
+                GUESSED_INDICES.append(INDEX)
+                ARTIST_GUESSES.append(UNIQUE_ARTISTS[INDEX][0])
+                break
+    if len(UNIQUE_ARTISTS) >= 3:
+        while True:
+            INDEX = randint(0, len(UNIQUE_ARTISTS) - 1)
+            if INDEX not in GUESSED_INDICES:
+                ARTIST_GUESSES.append(UNIQUE_ARTISTS[INDEX][0])
+                break
+    return ARTIST_GUESSES
 
 
-    # ARTIST1 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
-    # TOP_ARTISTS = [ARTIST1]
-    # if len(ARTISTS_COUNT) >= 2:
-    #     ARTIST2 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
-    #     TOP_ARTISTS.append(ARTIST2)
-    # elif len(ARTISTS_COUNT) >= 3:
-    #     ARTIST3 = findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS)
-    #     TOP_ARTISTS.append(ARTIST3)
-    # return TOP_ARTISTS
-    ## original
-    # ARTIST1_COUNT = max(ARTISTS_COUNT)  # find top artist by count
-    # ARTIST1_INDEX = ARTISTS_COUNT.index(ARTIST1_COUNT)  # obtain index to get artist name
-    # ARTIST1 = ALL_ARTISTS[ARTIST1_INDEX]  # get artist name
-    # ARTISTS_COUNT.remove(ARTIST1_COUNT)  # remove so next top artist can be found
-
-
-def sortBasisForTop(BASIS_COUNT):
-    TOP_COUNT = [0, 0]  # top_value, index
-    for INDEX, VALUE in enumerate(BASIS_COUNT):
-        if VALUE > TOP_COUNT[0]:
-            TOP_COUNT[0] = VALUE
-            TOP_COUNT[1] = INDEX
-    return TOP_COUNT[1]
-
-
-def determineTop3Genres():
-    global CURSOR
+def selectGenres() -> list:
+    """
+    randomly select up to 3 unique genres to guess as user's favourite genre
+    :return: list (of strings)
+    """
+    global CURSOR, randint
     ALL_GENRES = CURSOR.execute("""
-        SELECT
-            genre
-        FROM
-            songs
-    ;""").fetchall()
-    LISTED_GENRES, GENRES_COUNT = [], []
-
-    # remove duplicates
-    for i in range(len(ALL_GENRES) - 1, -1, -1):
-        if ALL_GENRES[i] not in LISTED_GENRES:
-            LISTED_GENRES.append(ALL_GENRES[i])
-        else:
-            ALL_GENRES.pop(i)
-
-    # count number of songs per genre
-    for GENRE in ALL_GENRES:
-        COUNT = CURSOR.execute("""
             SELECT
-                COUNT(genre)
+                genre
             FROM
                 songs
-            WHERE
-                artist = ?
-        ;""", [GENRE])
-    GENRES_COUNT.append(COUNT)  # parallel array
+        ;""").fetchall()  # returns 2D array
 
-    GENRE1 = findGenrebyCount(GENRES_COUNT, ALL_GENRES)
-    TOP_GENRES = [GENRE1]
-    if len(GENRES_COUNT) >= 2:
-        GENRE2 = findArtistByCount(GENRES_COUNT, ALL_GENRES)
-        TOP_GENRES.append(GENRE2)
-    elif len(GENRES_COUNT) >= 3:
-        GENRE3 = findArtistByCount(GENRES_COUNT, ALL_GENRES)
-        TOP_GENRES.append(GENRE3)
-    return TOP_GENRES
+    UNIQUE_GENRES = []
+    # save unique genres
+    for i in range(len(ALL_GENRES) - 1, -1, -1):
+        if ALL_GENRES[i] not in UNIQUE_GENRES:
+            UNIQUE_GENRES.append(ALL_GENRES[i])
+
+    # randomly pick genres to guess
+    GENRE_GUESSES = []
+    INDEX = randint(0, len(UNIQUE_GENRES) - 1)
+    GUESSED_INDICES = [INDEX]
+    GENRE_GUESSES.append(UNIQUE_GENRES[INDEX][0])
+    if len(UNIQUE_GENRES) >= 2:
+        while True:
+            INDEX = randint(0, len(UNIQUE_GENRES) - 1)
+            if INDEX not in GUESSED_INDICES:
+                GUESSED_INDICES.append(INDEX)
+                GENRE_GUESSES.append(UNIQUE_GENRES[INDEX][0])
+                break
+    if len(UNIQUE_GENRES) >= 3:
+        while True:
+            INDEX = randint(0, len(UNIQUE_GENRES) - 1)
+            if INDEX not in GUESSED_INDICES:
+                GENRE_GUESSES.append(UNIQUE_GENRES[INDEX][0])
+                break
+    return GENRE_GUESSES
 
 
 def findArtistByCount(ARTISTS_COUNT, ALL_ARTISTS):
@@ -619,7 +552,7 @@ def findGenrebyCount(GENRES_COUNT, ALL_GENRES):
 def getDuplicateSongNames():
     """
     retrieve all names of songs w/ duplicates
-    :return:
+    :return: list (of strings --> names of songs w/ duplicates)
     """
     global CURSOR
     ALL_SONG_NAMES = CURSOR.execute("""
@@ -635,22 +568,26 @@ def getDuplicateSongNames():
         if ALL_SONG_NAMES[i] not in LISTED_SONGS:
             LISTED_SONGS.append(ALL_SONG_NAMES[i])
     # count number of duplicates of each song
+    DUPLICATE_SONGS = []
     for i in range(len(LISTED_SONGS)):
         COUNT = ALL_SONG_NAMES.count(LISTED_SONGS[i])
-        LISTED_COUNT.append(COUNT)
-    # assemble names of songs w/ duplicates
-    DUPLICATE_SONGS = []
-    for INDEX, VALUE in enumerate(LISTED_COUNT):
-        if VALUE != 1:  # duplicates found
-            DUPLICATE_SONGS.append(LISTED_SONGS[INDEX])
+        if COUNT != 1:
+            DUPLICATE_SONGS.append(LISTED_SONGS[i][0])
+    #
+    #     LISTED_COUNT.append(COUNT)
+    # # assemble names of songs w/ duplicates
+    # DUPLICATE_SONGS = []
+    # for INDEX, VALUE in enumerate(LISTED_COUNT):
+    #     if VALUE != 1:  # duplicates found
+    #         DUPLICATE_SONGS.append(LISTED_SONGS[INDEX])
     return DUPLICATE_SONGS
 
 
-def getAllDuplicateSongs(DUPLICATE_SONGS):
+def getDuplicateSongIDs(DUPLICATE_SONGS):
     """
     get all duplicate songs from database (getting their ids specifically)
-    :param DUPLICATE_SONGS: list of song names (duplicates present)
-    :return:
+    :param DUPLICATE_SONGS: list (of song names that have duplicates present)
+    :return: list of tuples (--> song ids of songs that are duplicates of each other)
     """
     global CURSOR
     DUPLICATE_SONG_IDS = []
@@ -663,8 +600,10 @@ def getAllDuplicateSongs(DUPLICATE_SONGS):
             WHERE
                 song_name = ?
         ;""", [SONG_NAME]).fetchall()
-        IDS.insert(0, SONG_NAME)  # insert song_name at start
-        DUPLICATE_SONG_IDS.append(IDS)  # 2D array made
+        DUPLICATE_GROUP = []
+        for i in range(len(IDS)):
+            DUPLICATE_GROUP.append(IDS[i][0])
+        DUPLICATE_SONG_IDS.append(tuple(DUPLICATE_GROUP))  # 2D array made
     return DUPLICATE_SONG_IDS
 
 
@@ -686,17 +625,16 @@ def deleteDuplicateSongs(DUPLICATE_SONGS):
 
 
 # --- OUTPUTS --- #
-def displayPlaylist(SONG_DETAILS_PLAYIST, GENERATION_BASIS):
+def displayPlaylist(SONG_DETAILS_PLAYIST):
     """
     display playlist of songs in easy-to-read list
     :param SONG_DETAILS_PLAYIST: list of tuples
-    :param GENERATION_BASIS: int (1 = artist, 2 = genre)
     :return: None
     """
     global BASIS
-    print(f"The playlist generated based on your favourite {BASIS[GENERATION_BASIS]} is:")
+    print("\n>> The playlist generated is:")
     for i in range(len(SONG_DETAILS_PLAYIST)):
-        print(f'{i+1}. "{SONG_DETAILS_PLAYIST[0]}" by {SONG_DETAILS_PLAYIST[1]}')
+        print(f"{i+1}. '{SONG_DETAILS_PLAYIST[i][0]}' by {SONG_DETAILS_PLAYIST[i][1]} (Genre: {SONG_DETAILS_PLAYIST[i][2]})")
 
 
 # ----- VARIABLES ----- #
@@ -727,13 +665,11 @@ if __name__ == "__main__":
         elif CHOICE == 4:  # remove song
             SONG_ID = getSongID()
         elif CHOICE == 6:  # generate playlist
-            GENERATION_BASIS = getGenerationBasis()
             PLAYLIST_LENGTH = getPlaylistLength()
         elif CHOICE == 7:  # guess favourites
             GENERATION_BASIS = getGenerationBasis()
 
         # --- processing
-        TOTAL_SONGS = determineTotalSongs()  # starts counting from 1 (?)
         if CHOICE == 2:  # add song
             ALERT = insertNewSong(NEW_SONG)
         elif CHOICE == 3:  # modify song
@@ -742,44 +678,36 @@ if __name__ == "__main__":
             ALERT = deleteSong(SONG_ID)
         elif CHOICE == 5:  # duplicates
             DUPLICATE_SONG_NAMES = getDuplicateSongNames()
-            DUPLICATE_SONG_GROUPS = getAllDuplicateSongs(DUPLICATE_SONG_NAMES)
-            DUPLICATE_SONG_IDS = getSongGrouptoRemove(DUPLICATE_SONG_GROUPS)
+            DUPLICATE_SONG_GROUPS = getDuplicateSongIDs(DUPLICATE_SONG_NAMES)
+            DUPLICATE_SONG_IDS = getSongGrouptoRemove(DUPLICATE_SONG_NAMES, DUPLICATE_SONG_GROUPS)  # debugging currently (not sure if 2 params are parallel arrays)
             ALERT = deleteDuplicateSongs(DUPLICATE_SONG_IDS)
         elif CHOICE == 6:  # generate playlist
+            PLAYLIST = generatePlaylist(PLAYLIST_LENGTH)
+        elif CHOICE == 7:  # guess favourite artist or genre
             if GENERATION_BASIS == 1:  # artist
-                INDICES_OF_TOP = determineTopArtist()
-                INDICES_PLAYLIST = generateArtistPlaylist(len(INDICES_OF_TOP), INDICES_OF_TOP, PLAYLIST_LENGTH)
-                SONGS_PLAYLIST = retrievePlaylistSongs(INDICES_PLAYLIST)
-            else:  # genre
-                INDICES_OF_TOP = determineTopGenre()
-                INDICES_PLAYLIST = generateGenrePlaylist(len(INDICES_OF_TOP), INDICES_OF_TOP, PLAYLIST_LENGTH)
-                SONGS_PLAYLIST = retrievePlaylistSongs(INDICES_PLAYLIST)
-        elif CHOICE == 7:  # guess favourite ____
-            if GENERATION_BASIS == 1:  # artist
-                TOP_ARTISTS = determineTop3Artists()
-                print(TOP_ARTISTS)
-                # for ARTIST in TOP_ARTISTS:
-                #     ALERT = checkGuess(ARTIST, GENERATION_BASIS)
-                #     if not ALERT:
-                #         break
-                # else:
-                #     ALERT = "Darn! Couldn't guess it!"
-            else:  # genre
-                TOP_GENRES = determineTop3Genres()
-                for GENRE in TOP_GENRES:
-                    ALERT = checkGuess(GENRE, GENERATION_BASIS)
-                    if not ALERT:
+                ARTISTS = selectArtists()
+                for ARTIST in ARTISTS:
+                    ALERT = checkGuess(ARTIST, GENERATION_BASIS)
+                    if not ALERT == "F":
                         break
                 else:
-                    ALERT = "Darn! Couldn't guess it!"
+                    ALERT = f">> Darn! Couldn't guess your favourite {BASIS[GENERATION_BASIS]}!"
+            else:  # genre
+                GENRES = selectGenres()
+                for GENRE in GENRES:
+                    ALERT = checkGuess(GENRE, GENERATION_BASIS)
+                    if not ALERT == "F":
+                        break
+                else:
+                    ALERT = f">> Darn! Couldn't guess your favourite {BASIS[GENERATION_BASIS]}!"
 
         # --- outputs
         if CHOICE == 1:  # see all songs
             getAllSongsComplete()
-        # elif CHOICE in (2, 3, 4, 5, 7):
-        #     print(ALERT)
-        # elif CHOICE == 6:  # generate playlist
-        #     displayPlaylist(SONGS_PLAYLIST, GENERATION_BASIS)
+        elif CHOICE in (2, 3, 4, 5, 7):
+            print(ALERT)
+        elif CHOICE == 6:  # generate playlist
+            displayPlaylist(PLAYLIST)
         if CHOICE == 8:
             print("Thanks for using this program!")
             exit()
