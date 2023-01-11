@@ -6,6 +6,7 @@ date-created: 2023-01-01
 from pathlib import Path
 import sqlite3
 from random import randint
+import sys
 
 """
 reminders:
@@ -699,10 +700,10 @@ if __name__ == "__main__":
         # --- outputs
         if CHOICE == 1:  # see all songs
             getAllSongsComplete()
-        elif CHOICE in (2, 3, 4, 5, 7):
+        elif CHOICE in (2, 3, 4, 5, 7):  # add, modify, remove, check duplicates, guess favourites
             print(ALERT)
         elif CHOICE == 6:  # generate playlist
             displayPlaylist(PLAYLIST)
-        if CHOICE == 8:
+        if CHOICE == 8:  # exit
             print("Thanks for using this program!")
-            exit()
+            sys.exit()
