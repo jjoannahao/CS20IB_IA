@@ -113,6 +113,9 @@ def getModifiedSongDetails(ID):
         COLLECTION = input("Is the song part of an album or EP (y/N)? ")
         if COLLECTION.lower().strip() == "y" or COLLECTION.lower().strip() == "yes":
             COLLECTION_NAME = input(f"What is the name of the album or EP? (currently '{SONG[3]}') ")
+            if COLLECTION_NAME == "":
+                print(">> Please enter an album/EP name.")
+                continue
         else:
             COLLECTION_NAME = "single"
         DURATION = input(f"Song duration? (currently '{SONG[4]}') ")
@@ -143,13 +146,13 @@ def getPlaylistLength():
     global randint
     TOTAL_SONGS = determineTotalSongs()
     while True:
-        LENGTH = input(f"How many songs do you want the playlist to generate? (5-{TOTAL_SONGS} or random (R)) ")
-        if not (LENGTH.isnumeric() and int(LENGTH) >= 5 and int(LENGTH) <= TOTAL_SONGS or LENGTH.lower().strip() in (
+        LENGTH = input(f"How many songs do you want the program to generate? (1-{TOTAL_SONGS} or random (R)) ")
+        if not (LENGTH.isnumeric() and int(LENGTH) >= 1 and int(LENGTH) <= TOTAL_SONGS or LENGTH.lower().strip() in (
         "random", "r")):
             print("Please select a valid length or the 'random' option.")
             continue
         elif LENGTH.lower().strip() in ("random", "r"):
-            LENGTH = randint(5, TOTAL_SONGS)  # a <= ? <= b for randint (same as randrange(a, b+1)
+            LENGTH = randint(1, TOTAL_SONGS)  # a <= ? <= b for randint (same as randrange(a, b+1)
         break
     return int(LENGTH)
 
@@ -187,29 +190,25 @@ def getSongID():
         return SONGS[ROW_INDEX][0]
 
 
-def getSongGrouptoRemove(DUPLICATE_NAMES, DUPLICATE_SONG_IDS):
+def getSongGrouptoRemove(DUPLICATE_DETAILS, DUPLICATE_SONG_IDS):
     """
     display groups of song duplicates then ask user which group to remove
-    :param DUPLICATE_NAMES: list of strings (of songs names w/ duplicates)
+    :param DUPLICATE_DETAILS: list of tuples (names of songs & their artists w/ duplicates) (array parallel to other parameter)
     :param DUPLICATE_SONG_IDS: list of tuples (of groups of song ids that are duplicates of each other)
-    :return: int (index of song group to remove in DUPLICATE_SONG_GROUPS, the 2D array of duplicate songs
+    :return: tuple (of indices of duplicate song group to clean)
     """
-    # display song groups of duplicates
-    print(f"len check (shud be =): {len(DUPLICATE_NAMES)}, {len(DUPLICATE_SONG_IDS)}")
     print("Select a song group to have the duplicates (same song name & artist) removed:")
-    for i in range(len(DUPLICATE_NAMES)):  # number of song groups
-        print("Potential duplicates: ")
-        print(f"{i + 1}. {DUPLICATE_NAMES[i]} ", end="")  # format of 1. Song-Name (Num-Duplicates)
-        # print(f"({len(DUPLICATE_SONG_IDS[i])})")  # number of duplicates = len of tuple at corresponding index
+    for i in range(len(DUPLICATE_DETAILS)):  # number of song groups
+        print(f"{i + 1}. '{DUPLICATE_DETAILS[i][0]}' by {DUPLICATE_DETAILS[i][1]} ({len(DUPLICATE_SONG_IDS[i])} potential duplicates found)")
 
     # determine which group user wants to remove
-    GROUP = input("> ")  # to correspond to index of group in DUPLICATE_SONGS
-    if GROUP.isnumeric() and int(GROUP) >= 1 and int(GROUP) <= len(DUPLICATE_NAMES):
+    GROUP = input("> ")  # correspond to tuple in list, DUPLICATE_SONG_IDS, of song indices user wants cleaned
+    if GROUP.isnumeric() and int(GROUP) >= 1 and int(GROUP) <= len(DUPLICATE_DETAILS):
         GROUP = int(GROUP) - 1
-        return DUPLICATE_SONGS[GROUP]  # list of indexes of duplicates (includes song name still)
+        return DUPLICATE_SONG_IDS[GROUP]
     else:
-        print("Please enter a valid number from the list.")
-        return getSongGrouptoRemove(DUPLICATE_SONGS)
+        print(">> Please enter a valid number from the list.")
+        return getSongGrouptoRemove(DUPLICATE_DETAILS, DUPLICATE_SONG_IDS)
 
 
 # --- PROCESSING --- #
@@ -235,20 +234,6 @@ def setupSongs(DATA_LIST):
             )
         ;""", DATA_LIST[i])
     CONNECTION.commit()
-
-
-def getAllSongsBasic():  ### to delete
-    global CURSOR
-    SONGS = CURSOR.execute("""
-        SELECT
-            song_name,
-            artist
-        FROM
-            songs
-    ;""").fetchall()  # returns a list of tuples
-
-    for i in range(len(SONGS)):
-        print(f"{i + 1}. '{SONGS[i][0]}' by {SONGS[i][1]}")  # of the format: 1. (song_name) by (artist)
 
 
 def insertNewSong(SONG_DETAILS):
@@ -552,12 +537,13 @@ def findGenrebyCount(GENRES_COUNT, ALL_GENRES):
 def getDuplicateSongNames():
     """
     retrieve all names of songs w/ duplicates
-    :return: list (of strings --> names of songs w/ duplicates)
+    :return: list (of tuples --> names of songs & their artists w/ duplicates in database)
     """
     global CURSOR
     ALL_SONG_NAMES = CURSOR.execute("""
         SELECT
-            song_name
+            song_name,
+            artist
         FROM
             songs
     ;""").fetchall()
@@ -567,31 +553,25 @@ def getDuplicateSongNames():
     for i in range(len(ALL_SONG_NAMES)-1, -1, -1):
         if ALL_SONG_NAMES[i] not in LISTED_SONGS:
             LISTED_SONGS.append(ALL_SONG_NAMES[i])
+
     # count number of duplicates of each song
     DUPLICATE_SONGS = []
     for i in range(len(LISTED_SONGS)):
         COUNT = ALL_SONG_NAMES.count(LISTED_SONGS[i])
         if COUNT != 1:
-            DUPLICATE_SONGS.append(LISTED_SONGS[i][0])
-    #
-    #     LISTED_COUNT.append(COUNT)
-    # # assemble names of songs w/ duplicates
-    # DUPLICATE_SONGS = []
-    # for INDEX, VALUE in enumerate(LISTED_COUNT):
-    #     if VALUE != 1:  # duplicates found
-    #         DUPLICATE_SONGS.append(LISTED_SONGS[INDEX])
+            DUPLICATE_SONGS.append(LISTED_SONGS[i])  # appending tuple of song name + artist
     return DUPLICATE_SONGS
 
 
 def getDuplicateSongIDs(DUPLICATE_SONGS):
     """
     get all duplicate songs from database (getting their ids specifically)
-    :param DUPLICATE_SONGS: list (of song names that have duplicates present)
+    :param DUPLICATE_SONGS: list (of tuples consisting of song name & artist w/ duplicates)
     :return: list of tuples (--> song ids of songs that are duplicates of each other)
     """
     global CURSOR
     DUPLICATE_SONG_IDS = []
-    for INDEX, SONG_NAME in enumerate(DUPLICATE_SONGS):
+    for i in range(len(DUPLICATE_SONGS)):
         IDS = CURSOR.execute("""
             SELECT
                 id
@@ -599,29 +579,44 @@ def getDuplicateSongIDs(DUPLICATE_SONGS):
                 songs
             WHERE
                 song_name = ?
-        ;""", [SONG_NAME]).fetchall()
+                AND
+                artist = ?
+        ;""", DUPLICATE_SONGS[i]).fetchall()
         DUPLICATE_GROUP = []
-        for i in range(len(IDS)):
-            DUPLICATE_GROUP.append(IDS[i][0])
+        for j in range(len(IDS)):
+            DUPLICATE_GROUP.append(IDS[j][0])
         DUPLICATE_SONG_IDS.append(tuple(DUPLICATE_GROUP))  # 2D array made
     return DUPLICATE_SONG_IDS
 
 
-def deleteDuplicateSongs(DUPLICATE_SONGS):
+def deleteDuplicateSongs(DUPLICATE_SONG_IDS):
     """
     delete all but one of the songs w/ duplicates
-    :param DUPLICATE_SONGS: list (of song_name then IDs of all songs sharing that name & artist)
+    :param DUPLICATE_SONG_IDS: tuple (of indices of songs w/ duplicates (defined as same name & artist))
     :return: str
     """
     global CURSOR, CONNECTION
-    for i in range(2, len(DUPLICATE_SONGS)):  # leave one song in the database
+    # fetch name of song with duplicates being deleted
+    SONG = CURSOR.execute("""
+        SELECT
+            song_name,
+            artist
+        FROM
+            songs
+        WHERE
+            id = ?
+    ;""", [DUPLICATE_SONG_IDS[0]]).fetchone()
+
+    # delete duplicates (leave 1 song in database)
+    for i in range(1, len(DUPLICATE_SONG_IDS)):
         CURSOR.execute("""
             DELETE FROM
                 songs
-            WHERE 
+            WHERE
                 id = ?
-        ;""", [DUPLICATE_SONGS[i]])
-    return f"Successfully deleted duplicates of {DUPLICATE_SONGS[0]}"
+        ;""", [DUPLICATE_SONG_IDS[i]])
+        CONNECTION.commit()
+    return f"Successfully deleted duplicates of '{SONG[0]}' by {SONG[1]}!"
 
 
 # --- OUTPUTS --- #
@@ -677,9 +672,9 @@ if __name__ == "__main__":
         elif CHOICE == 4:  # remove song
             ALERT = deleteSong(SONG_ID)
         elif CHOICE == 5:  # duplicates
-            DUPLICATE_SONG_NAMES = getDuplicateSongNames()
-            DUPLICATE_SONG_GROUPS = getDuplicateSongIDs(DUPLICATE_SONG_NAMES)
-            DUPLICATE_SONG_IDS = getSongGrouptoRemove(DUPLICATE_SONG_NAMES, DUPLICATE_SONG_GROUPS)  # debugging currently (not sure if 2 params are parallel arrays)
+            DUPLICATE_SONG_DETAILS = getDuplicateSongNames()
+            DUPLICATE_SONG_GROUPS = getDuplicateSongIDs(DUPLICATE_SONG_DETAILS)
+            DUPLICATE_SONG_IDS = getSongGrouptoRemove(DUPLICATE_SONG_DETAILS, DUPLICATE_SONG_GROUPS)
             ALERT = deleteDuplicateSongs(DUPLICATE_SONG_IDS)
         elif CHOICE == 6:  # generate playlist
             PLAYLIST = generatePlaylist(PLAYLIST_LENGTH)
