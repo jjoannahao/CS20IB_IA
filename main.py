@@ -52,9 +52,9 @@ Choose an action:
 8. Exit
     """)
     CHOICE = input("> ")
-    if CHOICE.isnumeric() and int(CHOICE) >= 1 and int(CHOICE) <= 8:
+    try:
         return int(CHOICE)
-    else:
+    except ValueError:
         print("Please enter a valid number from the list.")
         return menu()
 
@@ -158,10 +158,11 @@ def getGenerationBasis():
     """
     global CHOICE
     GENERATION_BASIS = input("Do you want the program to guess your favourite artist (1) or genre (2)? ")
-    if not (GENERATION_BASIS.isnumeric() and int(GENERATION_BASIS) in (1, 2)):
+    try:
+        return int(GENERATION_BASIS)
+    except ValueError:
         print(">> Please select a valid generation basis from the options.")
         return getGenerationBasis()
-    return int(GENERATION_BASIS)
 
 
 def getPlaylistLength():
