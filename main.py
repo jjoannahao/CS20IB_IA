@@ -8,12 +8,6 @@ import sqlite3
 from random import randint
 import sys
 
-"""
-reminders:
-- IB naming conventions: uppercase for all variables, camelCase for functions/methods
-- have the triple line comments for all functions 
-"""
-
 
 # -------------------- SUBROUTINES -------------------- #
 # --- INPUTS --- #
@@ -37,7 +31,6 @@ def getFileContent(FILENAME):
             elif CONTENT[i][j] == "":
                 CONTENT[i][j] = None
             elif CONTENT[i][j][0] == "'" and CONTENT[i][j][-1] == "'":
-                CONTENT[i][j][0] = ""
                 CONTENT[i][j][0] = ""
     return CONTENT
 
