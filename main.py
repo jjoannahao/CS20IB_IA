@@ -148,7 +148,6 @@ def getModifiedSongDetails(ID):
             continue
         GENRE = input(f"What is the genre of the song? (currently '{SONG[-1]}') ")
         break
-    print(f"new details: {[SONG_NAME, ARTIST, COLLECTION_NAME, DURATION, GENRE]}")
     return [SONG_NAME, ARTIST, COLLECTION_NAME, DURATION, GENRE]
 
 
@@ -178,7 +177,7 @@ def getPlaylistLength():
         LENGTH = input(f"How many songs do you want the program to generate? (1-{TOTAL_SONGS} or random (R)) ")
         if not (LENGTH.isnumeric() and int(LENGTH) >= 1 and int(LENGTH) <= TOTAL_SONGS or LENGTH.lower().strip() in (
         "random", "r")):
-            print("Please select a valid length or the 'random' option.")
+            print(">> Please select a valid length or the 'random' option.")
             continue
         elif LENGTH.lower().strip() in ("random", "r"):  # randomly choose a playlist length
             LENGTH = randint(1, TOTAL_SONGS)
@@ -608,7 +607,7 @@ def displayPlaylist(SONG_DETAILS_PLAYIST):
     :return: None
     """
     global BASIS
-    print("\n>> The playlist generated is:")
+    print("\nThe playlist generated is:")
     for i in range(len(SONG_DETAILS_PLAYIST)):
         print(f"{i+1}. '{SONG_DETAILS_PLAYIST[i][0]}' by {SONG_DETAILS_PLAYIST[i][1]} (Genre: {SONG_DETAILS_PLAYIST[i][2]})")
 
@@ -650,7 +649,7 @@ if __name__ == "__main__":
         if CHOICE == 2:  # add song
             ALERT = insertNewSong(NEW_SONG)
         elif CHOICE == 3:  # modify song
-            ALERT = updateSongDetails(SONG_ID)
+            ALERT = updateSongDetails(SONG_ID, SONG_DETAILS)
         elif CHOICE == 4:  # remove song
             ALERT = deleteSong(SONG_ID)
         elif CHOICE == 5:  # duplicates
