@@ -157,12 +157,10 @@ def getGenerationBasis():
     :return: int
     """
     global CHOICE
-    while True:
-        GENERATION_BASIS = input("Do you want the program to guess your favourite artist (1) or genre (2)? ")
-        if not (GENERATION_BASIS.isnumeric() and int(GENERATION_BASIS) in (1, 2)):
-            print("Please select a valid generation basis from the options.")
-            continue
-        break
+    GENERATION_BASIS = input("Do you want the program to guess your favourite artist (1) or genre (2)? ")
+    if not (GENERATION_BASIS.isnumeric() and int(GENERATION_BASIS) in (1, 2)):
+        print(">> Please select a valid generation basis from the options.")
+        return getGenerationBasis()
     return int(GENERATION_BASIS)
 
 
