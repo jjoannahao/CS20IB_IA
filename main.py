@@ -15,7 +15,7 @@ def getFileContent(FILENAME):
     """
     extract and cleanse data so when returned, it can be inputted into a database.
     :param FILENAME: str
-    :return: list
+    :return: list of lists
     """
     FILE = open(FILENAME)
     CONTENT = FILE.readlines()
@@ -28,10 +28,6 @@ def getFileContent(FILENAME):
         for j in range(len(CONTENT[i])):  # checking items in list
             if CONTENT[i][j].isnumeric():
                 CONTENT[i][j] = int(CONTENT[i][j])
-            elif CONTENT[i][j] == "":
-                CONTENT[i][j] = None
-            elif CONTENT[i][j][0] == "'" and CONTENT[i][j][-1] == "'":
-                CONTENT[i][j][0] = ""
     return CONTENT
 
 
@@ -156,10 +152,16 @@ def getGenerationBasis():
     determine whether to guess user's favourite artist or genre
     :return: int
     """
-    global CHOICE
+    global CHOICE, BASIS
     GENERATION_BASIS = input("Do you want the program to guess your favourite artist (1) or genre (2)? ")
     try:
-        return int(GENERATION_BASIS)
+        GENERATION_BASIS = int(GENERATION_BASIS)
+        try:
+            BASIS_TEST = BASIS[GENERATION_BASIS]
+            return GENERATION_BASIS
+        except KeyError:
+            print(">> Please select a valid generation basis from the options.")
+            return getGenerationBasis()
     except ValueError:
         print(">> Please select a valid generation basis from the options.")
         return getGenerationBasis()
@@ -298,7 +300,7 @@ def insertNewSong(SONG_DETAILS):
     return f"'{SONG_DETAILS[0]}' by {SONG_DETAILS[1]} was successfully added!"
 
 
-def updateSongDetails(ID, SONG_INFO):
+def updateSongDetails(ID, SONG_DETAILS):
     """
     update song info in database w/ any new info from user
     :param ID: int
